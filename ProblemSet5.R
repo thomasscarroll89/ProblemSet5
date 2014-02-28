@@ -114,14 +114,33 @@ visualizing(n=1000, option=5)
 # plot1 <- plot1 + geom_point(aes(x=party.position[2,1], y=party.position[2,2], colour="party2")) # Party 2
 # plot1 
 
-####Problem 5####
-#affiliation2 function is just like affiliation function above, except the user can specify as arguments the positions taken by party 1 and party 2.
-#These arguments should each be vectors of length 2.
-affiliation2 <- function(n, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix(c(10,3,3,2),2,2), party.1, party.2){
-  outcome <- vector("list")
-  
-  #Generate the voters' and parties' positions 
-  voter.position <-  voters(n=n, option=option, sig1=sig1, sig2=sig2, Sigma=Sigma)  #run the voters function from Problems 1-2 above to generate some random initial voter preferences
+####"Get Things Moving" Section####
+####Problem 1-2####
+#This function is identical to the affiliation function above, which calculates both voter preferences and the 
+#party locations at random. 
+
+####Problem 3####
+#The relocate function below takes one argument, voter.pref, which is the first element of the list that is output by the 
+#affiliation() or visualizing() functions above.
+relocate <- function(voter.pref){
+  new.party.1 <- c(mean(voter.pref[which(voter.pref$affiliation==1),1]), 
+                   mean(voter.pref[which(voter.pref$affiliation==1),2]))
+  new.party.2 <- c(mean(voter.pref[which(voter.pref$affiliation==2),1]), 
+                   mean(voter.pref[which(voter.pref$affiliation==2),2]))
+  new.party.positions <- rbind(new.party.1, new.party.2)
+  return(new.party.positions)
+}
+
+
+####Problem 4####
+#Affiliation2 function allows the user to set the values of the party positions, as well as the voters' positions, instead
+#of generating them randomly. It then runs code similar to the affiliation function above to calculate which voters will vote
+#which parties. The voter.position argument should be a 2 column matrix, the first column containing all voters' positions on 
+#the first dimension while the second column contains all voters' positions on the 2nd dimension. Party.1 and Party.2 are vectors
+#of length 2 containing the positions of each party on a specific issue. Essentially I use this function to recalculate who the
+#voters will vote for in each iteration of the master() function below. 
+affiliation2 <- function(voter.position, party.1, party.2){  
+  #Rbind the party positions
   party.position <- rbind(party.1, party.2)
   
   #Calculate a vector showing each individual's total distance from party 1; call it distance.1
@@ -141,54 +160,64 @@ affiliation2 <- function(n, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix
   voter.position$final.distance <- final.distance
   voter.position$affiliation <- ifelse(final.distance > 0, "2", "1") 
   #create affiliation variable. Coded as "2" if voter is closer to party 2, and "1" otherwise
-  outcome$voter.position.data <- voter.position
-  outcome$party.positions <- party.position
-  return(outcome)
+  output <- vector("list")
+  output$voter.position <- voter.position
+  output$party.position <- party.position
+  return(output)
 }
-#Likewise the visualizing2 function is the same as visualizing except it can also take user-defined arguments for the positions taken by the parties; 
-#it uses these user-defined positions in the affiliation2 function defined above. It also keeps the same x and y-axis limits so that one can more easily 
-#see how the data/parties are moving compared to previously. Again, xlimit and ylimit should be numeric vectors of length 2 where the first element of the vector
-#is less than the second element
-visualizing2 <- function(n, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix(c(10,3,3,2),2,2), party.1, party.2, xlimit, ylimit){
-  first.draw <- affiliation2(n=n, option=option, sig1=sig1, sig2=sig2, Sigma=Sigma, party.1=party.1, party.2=party.2)
-  #First we plot only those observations who have an affiliation score of 1 (colored blue)
-  plot(x=first.draw$voter.position.data[which(first.draw$voter.position.data$affiliation==1),1], 
-       y=first.draw$voter.position.data[which(first.draw$voter.position.data$affiliation==1),2],
+
+#The function below is the master functions, which randomly creates a set of initial values for the voters and parties
+#and then has the parties move to the mean of their supporters for a certain number of iterations. 
+master <- function(sims=10, n=1000, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix(c(10,3,3,2),2,2)){
+  draw <- visualizing(n=n, option=option, sig1=sig1, sig2=sig2, Sigma=Sigma)
+#  xlimit <- c(min(c(draw$voter.position.data[,1], draw$party.position[,1])), 
+#              max(c(draw$voter.position.data[,1], draw$party.position[,1])))
+#  ylimit <- c(min(c(draw$voter.position.data[,2], draw$party.position[,2])), 
+#              max(c(draw$voter.position.data[,2], draw$party.position[,2])))
+  for(i in 2:sims){
+    party.positions.temp <- relocate(draw[[1]])
+    draw <- affiliation2(voter.position=draw[[1]][,1:2], party.1=party.positions.temp[1,], 
+                         party.2=party.positions.temp[2,])
+  }  
+}
+  
+####Problem 5####  
+#First I create the visualizing2 function, which is like the visualizing function above except that it takes its own arguments
+#for the values of the voters' and parties' ideal points. The voter.position argument should be a matrix containing
+#voters' positions on issues as well as their party affiliation. The party.position argument should be a 2 by 2 matrix containing 
+#the 2 parties' ideal point locations. Each row corresponds to a different party; each column corresponds to a different issue. 
+#Finally xlimit and ylimit are both vectors of length 2 giving the x and y axis limits
+visualizing2 <- function(voter.positions, party.position, xlimit, ylimit){
+  plot(x=voter.positions[which(voter.positions$affiliation==1),1], y=voter.positions[which(voter.positions$affiliation==1),2],
        col="blue", pch=16, cex=0.25, xlab="First Dimension", ylab="Second Dimension", 
        xlim=xlimit, ylim=ylimit)
   #Second we add the points with affiliation scores of 2 (colored red)
-  points(x=first.draw$voter.position.data[which(first.draw$voter.position.data$affiliation==2),1], 
-         y=first.draw$voter.position.data[which(first.draw$voter.position.data$affiliation==2),2],
+  points(x=voter.positions[which(voter.positions$affiliation==2),1], y=voter.positions[which(voter.positions$affiliation==2),2],
          col="red", pch=16, cex=0.25)
   #Third we add the locations of the parties themselves, graphed as orange triangles
-  points(x=first.draw$party.position[,1], y=first.draw$party.position[,2], col=c("orange", "green"), pch=17)
+  points(x=party.position[,1], y=party.position[,2], col=c("orange", "green"), pch=17)
   legend(x="topright", legend=c("Vote for Party 1", "Vote for Party 2", "Party 1", "Party 2"), 
          pch=c(16, 16, 17, 17), col=c("blue", "red", "orange", "green"), cex=0.5)
-  return(first.draw)
 }
 
-master <- function(sims=10, n=1000, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix(c(10,3,3,2),2,2)){
+#Now I rewrite the master() function to allow me to plot the positions of the voters and parties:
+Master <- function(sims=10, n=1000, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix(c(10,3,3,2),2,2)){
   draw <- visualizing(n=n, option=option, sig1=sig1, sig2=sig2, Sigma=Sigma)
-  xlimit <- c(min(c(draw$voter.position.data[,1], draw$party.position[,1])), 
-              max(c(draw$voter.position.data[,1], draw$party.position[,1])))
-  ylimit <- c(min(c(draw$voter.position.data[,2], draw$party.position[,2])), 
-              max(c(draw$voter.position.data[,2], draw$party.position[,2])))
+   xlimit <- c(min(c(draw$voter.position.data[,1], draw$party.position[,1])), 
+               max(c(draw$voter.position.data[,1], draw$party.position[,1])))
+   ylimit <- c(min(c(draw$voter.position.data[,2], draw$party.position[,2])), 
+               max(c(draw$voter.position.data[,2], draw$party.position[,2])))
   for(i in 2:sims){
-    party.1.new <- c(mean(draw$voter.position.data[which(draw$voter.position.data$affiliation==1),1]), 
-                      mean(draw$voter.position.data[which(draw$voter.position.data$affiliation==1),2]))
-    party.2.new <- c(mean(draw$voter.position.data[which(draw$voter.position.data$affiliation==2),1]), 
-                      mean(draw$voter.position.data[which(draw$voter.position.data$affiliation==2),2]))
-    draw <- visualizing2(n=n, option=option, sig1=sig1, sig2=sig2, Sigma=Sigma, party.1=party.1.new, 
-                         party.2=party.2.new, xlimit=xlimit, ylimit=ylimit)
-  }
+    party.positions.temp <- relocate(draw[[1]])
+    draw <- affiliation2(voter.position=draw[[1]][,1:2], party.1=party.positions.temp[1,], 
+                         party.2=party.positions.temp[2,])
+    visualizing2(voter.positions=draw[[1]], party.position=draw[[2]], xlimit=xlimit, ylimit=ylimit)
+  }  
 }
-
-#My NOTE: need to change visualization2 function so it does not generate a random new set of voter preferences every time
-
 
 #Note: the function windows() below opens a new window which will record the plots as they are generated. So running the master()
 #function after this will save each plot that is generated by the master function. To access it, simply open the window by running 
 #windows() function and use the page up/down keys to scroll through the different plots (or click on the History tab and click on 
 #Previous or Next to scroll through the plots)
 windows(record=TRUE)
-master()
+Master()
