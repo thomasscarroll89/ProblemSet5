@@ -37,18 +37,23 @@ voters <- function(n, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix(c(10,
     mvr.2 <- mvrnorm(n, mu=runif(2), Sigma=Sigma+runif(1))
     mvr.3 <- mvrnorm(n, mu=runif(2), Sigma=Sigma+runif(1))
     total <- rbind(mvr.1, mvr.2, mvr.3)
-    voter <- total[sample(1:(3*100), size=100),]
+    voter <- total[sample(1:(3*n), size=n),]
     return(voter)
   }
 }
+
 
 ####Problem 3: Function such that voters affiliate with the closest of the two parties####
 #The affiliation function takes the same arguments as the voters function above; thus when running affiliation, you can 
 #decide which kind of distribution will be used to generate voter preferences, etc. 
 affiliation <- function(n, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix(c(10,3,3,2),2,2)){
+  outcome <- vector("list")
+
+  #Generate the voters' and parties' positions 
   voter.position <-  voters(n=n, option=option, sig1=sig1, sig2=sig2, Sigma=Sigma)  #run the voters function from Problems 1-2 above to generate some random initial voter preferences
   party.1 <- rnorm(2) #the original positions taken by Party 1 on two dimensions
   party.2 <- rnorm(2) #the original positions taken by Party 2 on two dimensions
+  party.position <- rbind(party.1, party.2)
   
   #Calculate a vector showing each individual's total distance from party 1; call it distance.1
   distance.temp.1.1 <- voter.position[,1] - party.1[1] 
@@ -67,26 +72,35 @@ affiliation <- function(n, option=1, sig1=runif(1), sig2=runif(1), Sigma=matrix(
   voter.position$final.distance <- final.distance
   voter.position$affiliation <- ifelse(final.distance > 0, "2", "1") 
     #create affiliation variable. Coded as "2" if voter is closer to party 2, and "1" otherwise
-  return(voter.position)
+  outcome$voter.position.data <- voter.position
+  outcome$party.positions <- party.position
+  return(outcome)
 }
 
-first.draw <- affiliation(n=100)
+
+####Problem 4: Visualizing the Affiliations####
+first.draw <- affiliation(n=1000, option=5) #I use a sample size of 100 to demonstrate
+#First we plot only those observations who have an affiliation score of 1 (colored blue)
+plot(x=first.draw$voter.position.data[which(first.draw$voter.position.data$affiliation==1),1], 
+     y=first.draw$voter.position.data[which(first.draw$voter.position.data$affiliation==1),2],
+     col="blue", pch=16, cex=0.25, xlab="First Dimension", ylab="Second Dimension", 
+     xlim=c(min(first.draw$voter.position.data[,1]), max(first.draw$voter.position.data[,1])), 
+     ylim=c(min(first.draw$voter.position.data[,2]), max(first.draw$voter.position.data[,2])))
+#Second we add the points with affiliation scores of 2 (colored red)
+points(x=first.draw$voter.position.data[which(first.draw$voter.position.data$affiliation==2),1], 
+       y=first.draw$voter.position.data[which(first.draw$voter.position.data$affiliation==2),2],
+       col="red", pch=16, cex=0.25)
+#Third we add the locations of the parties themselves, graphed as orange triangles
+points(x=first.draw$party.position[,1], y=first.draw$party.position[,2], col="orange", pch=17)
 
 
-# the lines of code for problem 3 that were like: apply((voter.position - party.1)^2, 1, sum), I'm not sure they were 
-#working correctly. When I tried subtracting voter.position and party.1, it would subtract it in the reverse order that
-#we wanted. I'm not sure if it was also doing that outside the apply function, but just to be safe I decided to calculate 
-#the difference in positions as a matrix first, then go through and add them up. This may have been unnecessary, in which case I'm 
-#sorry for making the code more complex. I can try and describe in better detail what I think was wrong with the old code if you 
-#want, just let me know. 
-
-
-
-# 4. 
-colnames(party.position) <- c("issue1", "issue2")
-library(ggplot2)
-plot1 <- ggplot(voter.position, aes(x=X1, y=X2, colour=affiliation)) + geom_point() 
-plot1 <- plot1 + geom_point(aes(x=party.position[1,1], y=party.position[1,2], colour="party1")) # Party 1
-plot1 <- plot1 + geom_point(aes(x=party.position[2,1], y=party.position[2,2], colour="party2")) # Party 2
-plot1 
-?ggplot
+# Subsequent code; didn't work because of the changes I made to problem 3. I didn't end up using ggplot(), but let me 
+#know if you want me to go back and use ggplot for any reason. I'm just gonna comment it for now in case we want to 
+#go back and include it. 
+# colnames(party.position) <- c("issue1", "issue2")
+# library(ggplot2)
+# plot1 <- ggplot(voter.position, aes(x=X1, y=X2, colour=affiliation)) + geom_point() 
+# plot1 <- plot1 + geom_point(aes(x=party.position[1,1], y=party.position[1,2], colour="party1")) # Party 1
+# plot1 <- plot1 + geom_point(aes(x=party.position[2,1], y=party.position[2,2], colour="party2")) # Party 2
+# plot1 
+# ?ggplot
